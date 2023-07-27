@@ -1,3 +1,5 @@
+#include "color.h"
+#include "vec3.h"
 #include <iostream>
 
 // An RGB image stored in PPM format.
@@ -21,16 +23,8 @@ int main()
 
         for (int j = 0; j < img_width; ++j)
         {
-            auto r = double(j) / (img_width - 1);
-            auto g = double(i) / (img_height - 1);
-            auto b = 0.25;
-
-            // RGB components range from 0.0 to 1.0.
-            int ir = static_cast<int>(255.999 * r);
-            int ig = static_cast<int>(255.999 * g);
-            int ib = static_cast<int>(255.999 * b);
-
-            std::cout << ir << ' ' << ig << ' ' << ib << '\n';
+            color pixel_color(double(j)/(img_width-1), double(i)/(img_height-1), 0.25);
+            writeColor(std::cout, pixel_color);
         }
     }
 
