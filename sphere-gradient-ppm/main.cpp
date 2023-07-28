@@ -1,3 +1,4 @@
+#include "../headers/camera.h"
 #include "../headers/color.h"
 #include "../headers/constants.h"
 #include "../headers/ray.h"
@@ -37,6 +38,7 @@ int main() {
     const auto aspect_ratio = 16.0 / 9.0;
     const int img_width = 400;
     const int img_height = static_cast<int>(img_width / aspect_ratio);
+    const int samples_per_pixel = 100;
 
     // World
     sphere_list world;
@@ -44,14 +46,7 @@ int main() {
     world.add(make_shared<sphere>(point3(0, -100.5, -1), 100));
 
     // Camera
-    auto viewport_height = 2.0;
-    auto viewport_width = aspect_ratio * viewport_height;
-    auto focal_length = 1.0; // Distance between projection point (origin) and projection plane (viewport).
-
-    auto origin = point3(0, 0, 0);
-    auto horizontal = vec3(viewport_width, 0, 0);
-    auto vertical = vec3(0, viewport_height, 0);
-    auto lower_left_corner = origin - horizontal / 2 - vertical / 2 - vec3(0, 0, focal_length);
+    camera cam;
 
     // Render
     std::cout << "P3\n"
@@ -60,11 +55,14 @@ int main() {
     for (int i = img_height - 1; i >= 0; --i) {
         std::cerr << "\rRows remaining to scan: " << i << ' ' << std::flush;
         for (int j = 0; j < img_width; ++j) {
-            auto u = double(j) / (img_width - 1);  // Vector horizontal component
-            auto v = double(i) / (img_height - 1); // Vector vertical component
-            ray r = ray(origin, lower_left_corner + u * horizontal + v * vertical - origin);
-            color pixel_color = rayColor(r, world);
-            writeColor(std::cout, pixel_color);
+            color pixel_color(0, 0, 0);
+            for (int s = 0; s < samples_per_pixel; ++s) {
+                auto u = (j + random_double()) / (img_width - 1);  // Vector horizontal component
+                auto v = (i + random_double()) / (img_height - 1); // Vector vertical component
+                ray r = cam.getRay(u, v);
+                pixel_color += rayColor(r, world);
+            }
+            writeColor(std::cout, pixel_color, samples_per_pixel);
         }
     }
 
