@@ -1,5 +1,8 @@
 #include "../headers/color.h"
+#include "../headers/constants.h"
 #include "../headers/ray.h"
+#include "../headers/sphere.h"
+#include "../headers/surface_list.h"
 #include "../headers/vec3.h"
 
 #include <iostream>
@@ -10,7 +13,7 @@ double hitSphere(const point3 &center, double radius, const ray &r) {
     auto a = r.direction().len_sq();                         // a = b*b. Vector dotted with itself is equal to square length of that vector.
     auto b = 2.0 * dotProd(origin_to_center, r.direction()); // b = 2*b*(A-C)
     auto c = origin_to_center.len_sq() - radius * radius;    // c = (A-C)*(A-C)-r^2
-    auto discriminant = b * b - 4.0 * a * c;                   // Discriminant determines how many roots exist. If d > 0, two real solutions. If d = 0, one real solution.
+    auto discriminant = b * b - 4.0 * a * c;                 // Discriminant determines how many roots exist. If d > 0, two real solutions. If d = 0, one real solution.
     if (discriminant < 0) {
         return -1.0; // If no real solutions, t = -1.
     } else {
@@ -19,14 +22,13 @@ double hitSphere(const point3 &center, double radius, const ray &r) {
 }
 
 // Function that calculates the color of a pixel based on the direction of a ray.
-color rayColor(const ray &r) {
-    auto t = hitSphere(point3(0, 0, -1), 0.5, r); // Determine the hit point of the ray on the sphere, if it exists.
-    if (t > 0.0) {
-        vec3 norm_vec = unitVec(r.rayFunc(t) - vec3(0, 0, -1));                   // Use the calculated hit point to compute a normalized vector (perpendicular to surface).
-        return 0.5 * color(norm_vec.x() + 1, norm_vec.y() + 1, norm_vec.z() + 1); // Mapping x/y/z to r/g/b.
+color rayColor(const ray &r, const surface &world) {
+    hit_record rec; // Determine the hit point of the ray on the sphere, if it exists.
+    if (world.hit(r, 0, infinity, rec)) {
+        return 0.5 * (rec.normal + color(1, 1, 1));
     }
     vec3 unit_dir = unitVec(r.direction());                             // Translates ray into a normalized unit vector.
-    t = 0.5 * (unit_dir.y() + 1.0);                                     // -1.0 < y < 1.0 after normalization. Therefore 0.0 < t < 1.0.
+    auto t = 0.5 * (unit_dir.y() + 1.0);                                // -1.0 < y < 1.0 after normalization. Therefore 0.0 < t < 1.0.
     return (1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0); // Linear interpolation: blended = (1-t)*startVal + t*endVal
 }
 
@@ -35,6 +37,11 @@ int main() {
     const auto aspect_ratio = 16.0 / 9.0;
     const int img_width = 400;
     const int img_height = static_cast<int>(img_width / aspect_ratio);
+
+    // World
+    sphere_list world;
+    world.add(make_shared<sphere>(point3(0, 0, -1), 0.5));
+    world.add(make_shared<sphere>(point3(0, -100.5, -1), 100));
 
     // Camera
     auto viewport_height = 2.0;
@@ -56,7 +63,7 @@ int main() {
             auto u = double(j) / (img_width - 1);  // Vector horizontal component
             auto v = double(i) / (img_height - 1); // Vector vertical component
             ray r = ray(origin, lower_left_corner + u * horizontal + v * vertical - origin);
-            color pixel_color = rayColor(r);
+            color pixel_color = rayColor(r, world);
             writeColor(std::cout, pixel_color);
         }
     }
