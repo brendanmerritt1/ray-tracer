@@ -23,10 +23,13 @@ double hitSphere(const point3 &center, double radius, const ray &r) {
 }
 
 // Function that calculates the color of a pixel based on the direction of a ray.
-color rayColor(const ray &r, const surface &world) {
+color rayColor(const ray &r, const surface &world, int depth) {
     hit_record rec; // Determine the hit point of the ray on the sphere, if it exists.
-    if (world.hit(r, 0, infinity, rec)) {
-        return 0.5 * (rec.normal + color(1, 1, 1));
+    if (depth <= 0)
+        return color(0, 0, 0);                                               // If ray bounce limit has been exceexded, no more light is gathered, return black.
+    if (world.hit(r, 0.001, infinity, rec)) {                                // Calculating reflected ray origins, ignoring hits very near zero.
+        point3 target = rec.p + rec.normal + random_in_unit_sphere();        // Find a random ray direction.
+        return 0.5 * rayColor(ray(rec.p, target - rec.p), world, depth - 1); // Recurse until the ray fails to hit anything.
     }
     vec3 unit_dir = unitVec(r.direction());                             // Translates ray into a normalized unit vector.
     auto t = 0.5 * (unit_dir.y() + 1.0);                                // -1.0 < y < 1.0 after normalization. Therefore 0.0 < t < 1.0.
@@ -39,6 +42,7 @@ int main() {
     const int img_width = 400;
     const int img_height = static_cast<int>(img_width / aspect_ratio);
     const int samples_per_pixel = 100;
+    const int max_depth = 50;
 
     // World
     sphere_list world;
@@ -60,7 +64,7 @@ int main() {
                 auto u = (j + random_double()) / (img_width - 1);  // Vector horizontal component
                 auto v = (i + random_double()) / (img_height - 1); // Vector vertical component
                 ray r = cam.getRay(u, v);
-                pixel_color += rayColor(r, world);
+                pixel_color += rayColor(r, world, max_depth);
             }
             writeColor(std::cout, pixel_color, samples_per_pixel);
         }
