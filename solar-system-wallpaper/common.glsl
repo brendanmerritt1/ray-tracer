@@ -16,17 +16,6 @@ struct Ray {
     float t;    // time
 };
 
-struct HitRecord {
-    vec3 pos;
-    vec3 normal;
-    float t;    // Ray parameter
-};
-
-struct Sphere {
-    vec3 center;
-    float radius;
-};
-
 /**
     Ray Functions
 **/
@@ -42,47 +31,9 @@ Ray createRay(vec3 o, vec3 d) {
     return createRay(o, d, 0.0);
 }
 
-vec3 pointOnRay(Ray r, float t) {
-    return r.o + r.d * t;
-}
-
 /**
     Sphere Functions
 **/
-Sphere createSphere(vec3 center, float radius) {
-    Sphere s;
-    s.center = center;
-    s.radius = radius;
-    return s;
-}
-
-bool hitSphere(Sphere s, Ray r, float t_min, float t_max, out HitRecord rec) {
-    vec3 origin_center = r.o - s.center;
-    float a = dot(r.d, r.d);
-    float b = 2.0 * dot(origin_center, r.d);
-    float c = dot(origin_center, origin_center) - s.radius * s.radius;
-    float discriminant = b * b - 4.0 * a * c;
-
-    if(discriminant > 0.0) {
-        float sqrt_discriminant = sqrt(discriminant);
-        float root = (-b - sqrt_discriminant) / (2.0 * a);
-        if(root < t_max && root > t_min) {
-            rec.t = root;
-            rec.pos = pointOnRay(r, rec.t);
-            rec.normal = (rec.pos - s.center) / s.radius;
-            return true;
-        }
-        root = (-b + sqrt_discriminant) / (2.0 * a);
-        if(root < t_max && root > t_min) {
-            rec.t = root;
-            rec.pos = pointOnRay(r, rec.t);
-            rec.normal = (rec.pos - s.center) / s.radius;
-            return true;
-        }
-    }
-    return false;
-}
-
 vec2 sphIntersect(in vec3 ro, in vec3 rd, in vec3 center, float radius) {
     vec3 origin_center = ro - center;
     float b = dot(origin_center, rd);
