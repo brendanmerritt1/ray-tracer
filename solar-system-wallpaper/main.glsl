@@ -16,36 +16,16 @@
 #define ATMOS_DENS 2.0
 #define LIGHT_POS vec3(40, 25, -5)
 
-int hitSurface(Ray r, float t_min, float t_max, out HitRecord rec) {
-    // 0 = planet
-    // 1 = moon
-    // 2 = space
-    int hit;
-    rec.t = t_max;
-
-    if(hitSphere(createSphere(PLANET_CENTER, PLANET_RADIUS), r, t_min, rec.t, rec)) {
-        hit = 0;
-    } else if(hitSphere(createSphere(MOON_CENTER, MOON_RADIUS), r, t_min, rec.t, rec)) {
-        hit = 1;
-    } else {
-        hit = 2;
-    }
-
-    return hit;
-}
-
 vec3 rayTrace(Ray r, vec4 noise) {
-    HitRecord rec;
     vec3 color = vec3(0, 0, 0);
     vec2 atmos = sphIntersect(r.o, r.d, PLANET_CENTER, ATMOS_THICK + PLANET_RADIUS);
     float dist = getSceneDistance(r.o, r.d, PLANET_CENTER, PLANET_RADIUS, MAX_DIST);
-    int hit = hitSurface(r, SURF_DIST, MAX_DIST, rec);
 
-    if(hit == 0) {
+    if(dist < MAX_DIST) {
         // Ray hits planet
         atmos.y = dist;
-        vec3 pos = rec.pos;
-        vec3 norm = rec.normal;
+        vec3 pos = r.o + r.d * dist;
+        vec3 norm = normalize(pos - PLANET_CENTER);
         vec3 local_pos = (pos - PLANET_CENTER) * 0.5;
         local_pos = RotateY(local_pos, iTime * 0.05);
 
@@ -129,37 +109,40 @@ vec3 rayTrace(Ray r, vec4 noise) {
         float cloudShadow = 1.0 - smoothstep(0.5 + level * 0.85, 0.8 + level * 0.85, clouds_bisect) * 0.5 * (1.0 - clamp(dot(norm, norm_light), 0.0, 1.0));
         color = mix(color * cloudShadow, vec3(1.0) * rawNormDotL * cloudShadow, clouds);
 
-    } else if(hit == 1) {
-        // Ray hits moon
-        vec3 pos = rec.pos;
-        vec3 norm = rec.normal;
-        vec3 light_pos = LIGHT_POS;
-        vec3 norm_light = normalize(light_pos - pos);
-        float shadows = clamp(dot(norm_light, norm), 0.0, 1.0);
-        float noise = getFBM(pos * 0.4);
-        color = mix(vec3(0.2), vec3(0.4), noise) * shadows;
-    } else if(hit == 2) {
-        // Ray hits space
-        color = vec3(0.06);
-        vec3 pos = normalize(r.o + r.d * 1000.0);
-        pos = pos.xyz;
+    } else {
+        vec2 intersect = sphIntersect(r.o, r.d, MOON_CENTER, MOON_RADIUS);
+        if(intersect.x >= 0.0) {
+            // Ray hits moon
+            vec3 pos = intersect.x * r.d + r.o;
+            vec3 norm = normalize(pos - MOON_CENTER);
+            vec3 light_pos = LIGHT_POS;
+            vec3 norm_light = normalize(light_pos - pos);
+            float shadows = clamp(dot(norm_light, norm), 0.0, 1.0);
+            float noise = getFBM(pos * 0.4);
+            color = mix(vec3(0.2), vec3(0.4), noise) * shadows;
+        } else {
+            // Ray hits space
+            color = vec3(0.06);
+            vec3 pos = normalize(r.o + r.d * 1000.0);
+            pos = pos.xyz;
 
-        // Stars
-        for(float i = 0.0; i < 5.0; ++i) {
-            vec2 info = inverseSF(pos, 60000.0 + i * 1000.0);
-            float random = getHashFloat((info.x + i * 20.0) * 0.01);
-            float dist_to_star = smoothstep(0.0002 + 0.001 * pow((1.0 - random), 30.0), 0.0002, info.y) * smoothstep(0.1, 0.0, random);
-            color = max(color, vec3(dist_to_star));
+            // Stars
+            for(float i = 0.0; i < 5.0; ++i) {
+                vec2 info = inverseSF(pos, 60000.0 + i * 1000.0);
+                float random = getHashFloat((info.x + i * 20.0) * 0.01);
+                float dist_to_star = smoothstep(0.0002 + 0.001 * pow((1.0 - random), 30.0), 0.0002, info.y) * smoothstep(0.1, 0.0, random);
+                color = max(color, vec3(dist_to_star));
+            }
+
+            // Space noise (nebulae)
+            float noise = getFBM(pos * 2.0 + vec3(0.0, 0.0, iTime * 0.05));
+            float nebulae = smoothstep(0.4, 1.8, noise);
+            float nebulae1 = max(0.3 - abs(nebulae - 0.3), 0.0);
+            float nebulae2 = max(0.2 - abs(nebulae - 0.4), 0.0);
+            float nebulae3 = max(0.1 - abs(nebulae - 0.5), 0.0);
+            vec3 nebulaeColor = vec3(0.0, 0.2, 0.7) * nebulae1 + vec3(0.5, 0.4, 0.3) * nebulae2 + vec3(0.1, 0.2, 0.4) * nebulae3;
+            color += nebulaeColor;
         }
-
-        // Space noise (nebulae)
-        float noise = getFBM(pos * 2.0 + vec3(0.0, 0.0, iTime * 0.05));
-        float nebulae = smoothstep(0.4, 1.8, noise);
-        float nebulae1 = max(0.3 - abs(nebulae - 0.3), 0.0);
-        float nebulae2 = max(0.2 - abs(nebulae - 0.4), 0.0);
-        float nebulae3 = max(0.1 - abs(nebulae - 0.5), 0.0);
-        vec3 nebulaeColor = vec3(0.0, 0.2, 0.7) * nebulae1 + vec3(0.5, 0.4, 0.3) * nebulae2 + vec3(0.1, 0.2, 0.4) * nebulae3;
-        color += nebulaeColor;
     }
     if(atmos.x >= 0.0) {
         // Ray hits atmosphere
